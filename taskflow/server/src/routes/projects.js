@@ -1,0 +1,6 @@
+import {Router} from 'express'; import Project from '../models/Project.js'; import Task from '../models/Task.js';
+const router=Router();
+router.get('/',async(req,res)=>{try{res.json(await Project.find({$or:[{owner:req.user.id},{members:req.user.id}]}).populate('owner','name email').sort({updatedAt:-1}));}catch{res.status(500).json({message:'Could not load projects'});}});
+router.post('/',async(req,res)=>{try{const {name,description,color}=req.body;if(!name?.trim())return res.status(400).json({message:'Project name is required'});const p=await Project.create({name,description,color,owner:req.user.id,members:[req.user.id]});req.app.get('io').emit('project:created',{project:p});res.status(201).json(p);}catch{res.status(500).json({message:'Could not create project'});}});
+router.get('/:id/tasks',async(req,res)=>{try{const p=await Project.findOne({_id:req.params.id,$or:[{owner:req.user.id},{members:req.user.id}]});if(!p)return res.status(404).json({message:'Project not found'});res.json(await Task.find({project:p._id}).populate('assignee','name email').populate('createdBy','name').populate('comments.author','name').sort({createdAt:-1}));}catch{res.status(400).json({message:'Invalid project'});}});
+export default router;
